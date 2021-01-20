@@ -16,6 +16,17 @@ Property information for pages cann be accessed via the `/index.php?title=Specia
 In order to the `clientlogin` action, the read permissions of the user group who wishes to access the information needs to set to `true` in the `LocalSettings.php`.
 
 
+## `prototype.py`
+
+In order to work, the prototype needs a config file `config.yml` in the same directory:
+
+```yaml
+url: "http://127.0.0.1:8080/" # base url
+api: "http://127.0.0.1/api.php" # api url
+lgname: <username> # MediaWiki username with read permissions
+lgpassword: <password> 
+```
+
 ## License
 
 MIT
