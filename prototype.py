@@ -1,7 +1,8 @@
 import requests
 import yaml
 import sys
-
+import rdflib
+import urllib
 
 class MediawikiAPI:
 
@@ -69,10 +70,14 @@ class MediawikiAPI:
 
         # fetch rdf data
         rdf_url = f"{self._url}index.php?title=Special:ExportRDF/{page}&syntax=rdf"
-
         rsp = self._session.get(rdf_url)
-        print(rsp.text)
 
+        g = rdflib.Graph()
+        g.parse(data=rsp.text, format="xml")
+
+        for s, p, o in g.triples((None, None, None)):
+            print(s, p, o)
+       
 
 if __name__ == "__main__":
 
