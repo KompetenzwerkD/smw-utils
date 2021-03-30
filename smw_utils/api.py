@@ -1,10 +1,8 @@
 import requests
-import yaml
-import sys
 import rdflib
 import urllib
 
-class MediawikiAPI:
+class MediawikiApi:
 
     def __init__(self, url, api, lgname, lgpassword):
         self._url = url
@@ -27,6 +25,7 @@ class MediawikiAPI:
         rsp = self._session.get(url=self._api, params=token_params)
         data = rsp.json()
         return data["query"]["tokens"]["logintoken"]
+
 
     def _get_csrf_token(self):
         token_params = {
@@ -90,6 +89,7 @@ class MediawikiAPI:
         g = rdflib.Graph()
         g.parse(data=rsp.text, format="xml")
 
+
     def create_page(self, title, content):
         csrf_token = self._get_csrf_token()
         payload = {
@@ -100,19 +100,6 @@ class MediawikiAPI:
             "text": content
         }
         rsp = self._session.post(url=self._api, data=payload)
-        print(rsp.json())
+        print(f"... page '{title}' created")
+        #print(rsp.json())
         
-
-if __name__ == "__main__":
-
-    with open("config.yml") as f:
-        config = yaml.load(f, Loader=yaml.BaseLoader)
-
-    api = MediawikiAPI(
-        config["url"],
-        config["api"],
-        config["lgname"],
-        config["lgpassword"]
-    )
-    #api.fetch_category("Persons")
-    api.create_page("BotTestPage", "import test")
