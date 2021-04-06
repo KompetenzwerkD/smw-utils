@@ -24,7 +24,7 @@ api = MediawikiApi(
    "http://37.120.165.192:8099/",
    "http://37.120.165.192:8099/api.php",
     "username",
-    "password
+    "password"
 )
 
 api.create_page("Test page", "This page was created via the Mediawiki API")
