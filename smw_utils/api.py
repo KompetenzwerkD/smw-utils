@@ -1,11 +1,16 @@
 import requests
 import rdflib
 import urllib
+import re
+from .ns import SMW, WIKI_PAGE
+
 
 class MediawikiApi:
-"""
-Wrapper class for the Mediawiki API.
-"""
+    """
+    Wrapper class for the Mediawiki API.
+    """
+
+    template_re = re.compile("{{.*?}}", re.DOTALL)    
 
     def __init__(self, url, api, lgname, lgpassword, verbose=False):
         """
@@ -32,6 +37,7 @@ Wrapper class for the Mediawiki API.
     def _get_login_token(self):
         """
         Fetches login token from the Mediawiki API
+
         :return: Returns login token
         """
         token_params = {
@@ -48,6 +54,7 @@ Wrapper class for the Mediawiki API.
     def _get_csrf_token(self):
         """
         Fetches CSRF token from the Mediawiki API.
+
         :return: Returns CSRF token
         """
         token_params = {
@@ -63,6 +70,7 @@ Wrapper class for the Mediawiki API.
     def _login(self, login_token):
         """
         Login to mediawiki
+
         :param login_token: Mediawiki API login token
         :return: Returns nothing
         """
@@ -76,13 +84,13 @@ Wrapper class for the Mediawiki API.
         }
         rsp = self._session.post(url=self._api, data=login_params)
         if self._verbose:
-            print(f"Logged in with user <{self._lgname}>")
+            print(f"Logged in as user <{self._lgname}>")
 
 
     def fetch_category(self, category):
         """
-        TODO
         Fetches all pages in a category.
+
         :param category: Category name.
         :return: List of page titles
         """
@@ -94,13 +102,81 @@ Wrapper class for the Mediawiki API.
             "format": "json"
         }
         rsp = self._session.get(url=self._api, params=fetch_params)
-        #print(rsp.json())
+        data = rsp.json()
 
-
-    #def _fetch_uri_label(self, g, uri):
-    #    for s, p, o in g.triples((uri, rdflib.URIRef("http://www.w3.org/2000/01/rdf-schema#label"), None)):
-    #        print(o)
+        category_pages = []
+        for entry in data["query"]["categorymembers"]:
+            category_pages.append(entry["title"])
         
+        return category_pages
+
+    def _get_page_free_text(self, wikitext):
+        free_text = self.template_re.sub("", wikitext).strip()
+        return free_text
+
+
+    def _fetch_page_rdf_graph(self, page):
+        rdf_url = f"{self._url}index.php?title=Special:ExportRDF/{page}&syntax=rdf"
+        rsp = self._session.get(rdf_url)
+
+        g = rdflib.Graph()
+        g.parse(data=rsp.text, format="xml")  
+
+        return g
+
+
+    def _get_property_information(self, prop_uri):
+        page_title = str(prop_uri).split("Special:URIResolver/")[-1]
+        g = self._fetch_page_rdf_graph(page_title.replace("-3A", ":"))
+
+        label = str(g.label(prop_uri))
+        data_type = g.value(
+            subject=prop_uri, 
+            predicate=SMW.type,
+            object=None)
+
+        return {
+            "uri": prop_uri,
+            "label": label,
+            "type": data_type
+        }
+
+
+    def _get_page_label(self, page_uri):
+        page_title = str(page_uri).split("Special:URIResolver/")[-1]
+        page_title = page_title.replace("_", " ")
+        return urllib.parse.unquote(page_title.replace("-", "%"))
+        
+
+    def _get_page_semantic_properties(self, page):
+        g = self._fetch_page_rdf_graph(page)
+
+        page_uri = g.value(
+            subject=None, 
+            predicate=rdflib.RDFS.label, 
+            object=rdflib.Literal(page))
+
+        properties = []
+        for s, p, o in g.triples((page_uri, None, None)):          
+            if "Property" in str(p):
+                prop_data = self._get_property_information(p)
+                if prop_data["type"]:
+
+                    if prop_data["type"] == WIKI_PAGE:
+                        value_label = self._get_page_label(o)
+                        properties.append({
+                            "property": prop_data,
+                            "value": o,
+                            "label": value_label
+                        })
+                    else:
+                        properties.append({
+                            "property": prop_data,
+                            "value": str(o)
+                        })
+        
+        return properties
+            
 
     def fetch_page(self, page):
         """
@@ -124,7 +200,10 @@ Wrapper class for the Mediawiki API.
         in the `LocalSettings.php`.
 
         """
-        # fetch page text
+        
+        if self._verbose:
+            print(f"fetching page <{page}> ...")
+
         fetch_params = {
             "action": "parse",
             "page": page,
@@ -133,19 +212,22 @@ Wrapper class for the Mediawiki API.
             "format": "json"
         }
         rsp = self._session.get(url=self._api, params=fetch_params)
-        print(rsp.json())
-
-        # fetch rdf data
-        rdf_url = f"{self._url}index.php?title=Special:ExportRDF/{page}&syntax=rdf"
-        rsp = self._session.get(rdf_url)
-
-        g = rdflib.Graph()
-        g.parse(data=rsp.text, format="xml")
+        data = rsp.json()
+        wikitext = data["parse"]["wikitext"]
+        free_text = self._get_page_free_text(wikitext)
+        properties = self._get_page_semantic_properties(page)
+       
+        return {
+            "title": page,
+            "properties": properties,
+            "free_text": free_text
+        }
 
 
     def create_page(self, title, content):
         """
-        Creates a wiki page
+        Creates a wiki page.
+
         :param title: Page title
         :content: Page content
         :return: Returns nothing
