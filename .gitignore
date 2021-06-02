@@ -1,3 +1,4 @@
 config.yml
 smw_utils.egg-info/
 __pycache__/
+test.py

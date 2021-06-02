@@ -243,3 +243,10 @@ class MediawikiApi:
         rsp = self._session.post(url=self._api, data=payload)
         if self._verbose:
             print(f"... page '{title}' created")
+
+    def update_property(self, form, page, template, property, value):
+
+        url = self._api + f"?action=pfautoedit&form={form}&target={page}&{template}[{property}]={value}"
+        #print(url)
+        rsp = self._session.get(url)
+        #print(rsp.text)
