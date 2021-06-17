@@ -110,12 +110,24 @@ class MediawikiApi:
         
         return category_pages
 
+
     def _get_page_free_text(self, wikitext):
+        """
+        Returns the free text portion of from wikitext without templates.
+        :param wikitext: Full wikitext string
+        :return: Wikitext without templates
+        """
         free_text = self.template_re.sub("", wikitext).strip()
         return free_text
 
 
     def _fetch_page_rdf_graph(self, page):
+        """
+        Returns rdf graph with semantic properties of a Semantic Mediawiki page
+        :param page: Wiki page title
+        :return: Graph with sematic properties of the page
+        """
+        page = urllib.parse.quote(page)
         rdf_url = f"{self._url}index.php?title=Special:ExportRDF/{page}&syntax=rdf"
         rsp = self._session.get(rdf_url)
 
@@ -126,6 +138,11 @@ class MediawikiApi:
 
 
     def _get_property_information(self, prop_uri):
+        """
+        Fetches additional information for sematic properties from SMW
+        :pram prop_uri: URI of sematic mediawiki property
+        :return: Dictionary conataining uri, label and data type of seamtic propertys
+        """
         page_title = str(prop_uri).split("Special:URIResolver/")[-1]
         g = self._fetch_page_rdf_graph(page_title.replace("-3A", ":"))
 
@@ -143,12 +160,22 @@ class MediawikiApi:
 
 
     def _get_page_label(self, page_uri):
+        """
+        Generates page labem from page URI
+        :param page_uri: Page URI
+        :return: Page label
+        """
         page_title = str(page_uri).split("Special:URIResolver/")[-1]
         page_title = page_title.replace("_", " ")
         return urllib.parse.unquote(page_title.replace("-", "%"))
         
 
     def _get_page_semantic_properties(self, page):
+        """
+        Returns all sematic properties of a wiki page
+        :param page: Wiki page
+        :return: Dictionary containing all seamtic propeties of the wiki page
+        """
         g = self._fetch_page_rdf_graph(page)
 
         page_uri = g.value(
@@ -244,9 +271,17 @@ class MediawikiApi:
         if self._verbose:
             print(f"... page '{title}' created")
 
+
     def update_property(self, form, page, template, property, value):
+        """
+        Update a specific semantic property on a Medaiwiki page
+        :param form: Pageforms name containing the property
+        :param page: Wiki page 
+        :param template: Name of the template used in the the page form
+        :param property: Property name to update
+        :param value: New property value
+        :return:
+        """
 
         url = self._api + f"?action=pfautoedit&form={form}&target={page}&{template}[{property}]={value}"
-        #print(url)
         rsp = self._session.get(url)
-        #print(rsp.text)
